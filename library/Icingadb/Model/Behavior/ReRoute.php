@@ -12,6 +12,13 @@ class ReRoute implements RewriteFilterBehavior, RewritePathBehavior
 {
     protected $routes;
 
+    /**
+     * Special tables which require an additional step to apply filters with service group name
+     *
+     * @var string[]
+     */
+    const SPECIAL_RELATIONS = ['downtime', 'comment', 'history', 'notification_history'];
+
     public function __construct(array $routes)
     {
         $this->routes = $routes;
@@ -37,6 +44,14 @@ class ReRoute implements RewriteFilterBehavior, RewritePathBehavior
                     'forceOptimization',
                     $condition->metaData()->get('forceOptimization')
                 );
+            }
+
+            if (in_array(substr($relation, 0, -1), self::SPECIAL_RELATIONS) && $remainingPath === 'servicegroup.name') {
+                $applyAll = Filter::all();
+                $applyAll->add(Filter::like($relation . 'object_type', 'host'));
+                $applyAll->add(Filter::like('host.' . $path, $condition->getValue()));
+
+                $filter = Filter::any($filter, $applyAll);
             }
 
             return $filter;
